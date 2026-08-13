@@ -1,0 +1,10 @@
+{
+  "description": "Provides users with an AI-driven digital identity passport featuring cyber trust scores, risk predictions, and personalized security recommendations to protect online presence.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
