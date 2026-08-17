@@ -3,7 +3,7 @@ import type { Page } from '../App'
 interface Props { navigate: (p: Page) => void }
 
 const features = [
-  { icon: '◈', title: 'Cyber Trust Score', desc: 'A verified 0–850 score reflecting your digital security posture.' },
+  { icon: '◈', title: 'Cyber Trust Score', desc: 'A verified 0–100 score reflecting your digital security posture.' },
   { icon: '⬡', title: 'Digital Passport', desc: 'An official credential verifying your cyber identity and reputation.' },
   { icon: '◆', title: 'AI Recommendations', desc: 'Personalised weekly action plans to improve your security.' },
   { icon: '◷', title: 'Weekly Reports', desc: 'Track improvement and risk trends over time.' },
@@ -71,7 +71,7 @@ export default function Landing({ navigate }: Props) {
               }}>Sign In</button>
             </div>
             <div style={{ display: 'flex', gap: 28, marginTop: 44, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
-              {[{ v: '127K+', l: 'Passports Issued' }, { v: '850', l: 'Max Trust Score' }, { v: '99.7%', l: 'Accuracy' }].map(s => (
+              {[{ v: '127K+', l: 'Passports Issued' }, { v: '100', l: 'Max Trust Score' }, { v: '99.7%', l: 'Accuracy' }].map(s => (
                 <div key={s.l}>
                   <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 24, fontWeight: 700, color: 'var(--emerald)' }}>{s.v}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>{s.l}</div>
@@ -112,14 +112,14 @@ export default function Landing({ navigate }: Props) {
                 <div style={{ background: 'var(--emerald-light)', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
                   <div style={{ fontSize: 10, color: 'var(--emerald-mid)', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 6 }}>CYBER TRUST SCORE</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 32, fontWeight: 700, color: 'var(--emerald)' }}>742</div>
+                    <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 32, fontWeight: 700, color: 'var(--emerald)' }}>84</div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, color: 'var(--text-2)' }}>out of 850</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-2)' }}>out of 100</div>
                       <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, marginTop: 2 }}>● LOW RISK</div>
                     </div>
                   </div>
                   <div style={{ height: 5, background: 'rgba(11,77,67,0.12)', borderRadius: 3, marginTop: 10, overflow: 'hidden' }}>
-                    <div style={{ width: `${(742/850)*100}%`, height: '100%', background: 'linear-gradient(90deg, var(--emerald), var(--gold))', borderRadius: 3 }} />
+                    <div style={{ width: '84%', height: '100%', background: 'linear-gradient(90deg, var(--emerald), var(--gold))', borderRadius: 3 }} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>

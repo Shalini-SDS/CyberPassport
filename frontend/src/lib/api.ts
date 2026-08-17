@@ -1,4 +1,20 @@
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const normalizeApiUrl = (value: string) => {
+  const raw = value.trim().replace(/\/$/, '')
+  if (!raw) return 'http://localhost:8000'
+
+  try {
+    const url = new URL(raw)
+    if (['0.0.0.0', '::', '[::]'].includes(url.hostname)) {
+      url.hostname = 'localhost'
+    }
+    return url.origin
+  } catch {
+    return 'http://localhost:8000'
+  }
+}
+
+export const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL || 'http://localhost:8000')
+const REQUEST_TIMEOUT_MS = 12000
 
 export type CurrentUser = {
   id: string
@@ -43,7 +59,22 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (!(options.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const token = getToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers })
+
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers, signal: controller.signal })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Backend did not respond at ${API_URL}. Make sure FastAPI is running and open it as http://127.0.0.1:8000, not http://0.0.0.0:8000.`)
+    }
+    throw new Error(`Cannot reach backend at ${API_URL}. Start FastAPI on port 8000, then try again.`)
+  } finally {
+    window.clearTimeout(timeout)
+  }
+
   if (!res.ok) {
     let message = 'Request failed'
     try {
@@ -58,15 +89,38 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 }
 
 export async function downloadPassportPdf(userId: string) {
-  const res = await fetch(`${API_URL}/api/passport/${userId}/download`, {
-    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : undefined,
-  })
-  if (!res.ok) throw new Error('Could not download passport PDF')
+  await downloadPassportAsset(userId, 'download', 'pdf')
+}
+
+export async function downloadPassportImage(userId: string) {
+  await downloadPassportAsset(userId, 'image', 'png')
+}
+
+async function downloadPassportAsset(identifier: string, endpoint: 'download' | 'image', extension: 'pdf' | 'png') {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}/api/passport/${identifier}/${endpoint}`, {
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : undefined,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Backend did not respond at ${API_URL}.`)
+    }
+    throw new Error(`Cannot reach backend at ${API_URL}.`)
+  } finally {
+    window.clearTimeout(timeout)
+  }
+
+  if (!res.ok) throw new Error(`Could not download passport ${extension.toUpperCase()}`)
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `CyberPassport-${userId}.pdf`
+  a.download = `CyberPassport-${identifier}.${extension}`
   a.click()
   URL.revokeObjectURL(url)
 }

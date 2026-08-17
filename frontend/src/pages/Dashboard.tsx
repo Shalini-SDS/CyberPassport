@@ -1,15 +1,21 @@
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
 import type { Page } from '../App'
 import { apiFetch, downloadPassportPdf, getCurrentUser } from '../lib/api'
 
 interface Props { navigate: (p: Page) => void }
 
+const normalizeScore = (value: unknown) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(100, numeric))
+}
+
 const weeklyData = [
-  { w: 'W1', score: 618 }, { w: 'W2', score: 634 }, { w: 'W3', score: 651 },
-  { w: 'W4', score: 680 }, { w: 'W5', score: 695 }, { w: 'W6', score: 712 },
-  { w: 'W7', score: 730 }, { w: 'W8', score: 742 },
+  { w: 'W1', score: 48 }, { w: 'W2', score: 52 }, { w: 'W3', score: 58 },
+  { w: 'W4', score: 62 }, { w: 'W5', score: 66 }, { w: 'W6', score: 72 },
+  { w: 'W7', score: 78 }, { w: 'W8', score: 84 },
 ]
 
 const securityHealth = [
@@ -21,10 +27,10 @@ const securityHealth = [
 ]
 
 const activity = [
-  { icon: '✓', text: 'Assessment completed', time: '2 hours ago', color: 'var(--success)' },
-  { icon: '⬡', text: 'Passport generated', time: '2 hours ago', color: 'var(--emerald)' },
-  { icon: '↑', text: 'Trust Score updated to 742', time: '2 hours ago', color: 'var(--gold)' },
-  { icon: '◆', text: '5 new recommendations', time: '2 hours ago', color: 'var(--emerald-mid)' },
+  { icon: '✓', text: 'Assessment completed', time: 'recently', color: 'var(--success)' },
+  { icon: '⬡', text: 'Passport generated', time: 'recently', color: 'var(--emerald)' },
+  { icon: '↑', text: 'Trust score updated', time: 'recently', color: 'var(--gold)' },
+  { icon: '◆', text: 'Recommendations refreshed', time: 'recently', color: 'var(--emerald-mid)' },
 ]
 
 function ScoreGauge({ score }: { score: number }) {
@@ -65,11 +71,18 @@ export default function Dashboard({ navigate }: Props) {
     apiFetch<any>(`/api/dashboard/${user.id}`).then(setData).catch(err => setError(err instanceof Error ? err.message : 'Could not load dashboard'))
   }, [])
 
-  const score = data?.cyber_trust_score ?? 0
+  const score = normalizeScore(data?.cyber_trust_score)
   const risk = data?.risk_level ?? 'Unknown'
-  const chartData = data?.risk_trend?.length ? data.risk_trend : weeklyData
+  const chartData = data?.risk_trend?.length ? data.risk_trend.map((item: any) => ({ ...item, score: normalizeScore(item.score) })) : weeklyData
   const health = data?.security_category_status?.length ? data.security_category_status : securityHealth
   const userName = data?.user?.name || getCurrentUser()?.name || 'CyberPassport User'
+
+  const thisMonthDelta = useMemo(() => {
+    if (!Array.isArray(data?.history) || data.history.length < 2) return 0
+    const latest = normalizeScore(data.history[data.history.length - 1]?.trust_score ?? 0)
+    const previous = normalizeScore(data.history[data.history.length - 2]?.trust_score ?? 0)
+    return latest - previous
+  }, [data])
 
   return (
     <AppShell navigate={navigate} current="dashboard">
@@ -111,7 +124,7 @@ export default function Dashboard({ navigate }: Props) {
           {/* Trend */}
           <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '16px 24px' }}>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>This Month</div>
-            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 26, fontWeight: 700, color: '#86efac' }}>+18</div>
+            <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 26, fontWeight: 700, color: '#86efac' }}>{thisMonthDelta >= 0 ? `+${thisMonthDelta}` : thisMonthDelta}</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>points</div>
           </div>
         </div>
@@ -189,7 +202,7 @@ export default function Dashboard({ navigate }: Props) {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="w" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis domain={[580, 780]} tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+                <YAxis domain={[0, 100]} tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
                 <Tooltip contentStyle={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
                 <Area type="monotone" dataKey="score" stroke="var(--emerald)" strokeWidth={2} fill="url(#grad)" dot={false} />
               </AreaChart>

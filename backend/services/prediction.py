@@ -1,88 +1,290 @@
-from functools import lru_cache
-from pathlib import Path
-from typing import Any, Dict
-
+import os
 import joblib
-import numpy as np
 import pandas as pd
+import numpy as np
 
 from services.recommendation import build_recommendations
 from services.risk_analysis import analyze_risk_factors
-from services.trust_score import (
-    calculate_future_risk_score,
-    calculate_trust_score,
-    category_status,
-    normalize_features,
-    risk_from_score,
-)
+from services.trust_score import calculate_future_risk_score, calculate_trust_score, category_status, normalize_features
 
-MODEL_DIR = Path(__file__).resolve().parents[1] / "models"
-MODEL_FILE = MODEL_DIR / "xgboost_final_model.pkl"
-FEATURE_ENCODERS_FILE = MODEL_DIR / "feature_encoders.pkl"
-TARGET_ENCODER_FILE = MODEL_DIR / "target_encoder.pkl"
+# ============================================================
+# MODEL PATHS
+# ============================================================
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def resolve_model_path(*candidates):
+    model_dir = os.path.join(BASE_DIR, "models")
+    for candidate in candidates:
+        full_path = os.path.join(model_dir, candidate)
+        if os.path.exists(full_path):
+            return full_path
+    available = sorted(os.listdir(model_dir)) if os.path.isdir(model_dir) else []
+    raise FileNotFoundError(f"Could not find any ML model file. Looked for: {candidates}. Available files: {available}")
+
+
+MODEL_PATH = resolve_model_path("xgboost_final.pkl", "xgboost_final_model.pkl")
+FEATURE_ENCODER_PATH = resolve_model_path("feature_encoders.pkl")
+TARGET_ENCODER_PATH = resolve_model_path("target_encoder.pkl")
+
+
+# ============================================================
+# LOAD MODEL AND ENCODERS
+# ============================================================
+
+print("Loading CyberPassport ML model...")
+
+model = joblib.load(MODEL_PATH)
+
+feature_encoders = joblib.load(FEATURE_ENCODER_PATH)
+
+target_encoder = joblib.load(TARGET_ENCODER_PATH)
+
+print("XGBoost model loaded successfully!")
+print("Feature encoders loaded successfully!")
+print("Target encoder loaded successfully!")
 
 
 class PredictionService:
-    def __init__(self) -> None:
-        self.model = joblib.load(MODEL_FILE)
-        self.feature_encoders = joblib.load(FEATURE_ENCODERS_FILE)
-        self.target_encoder = joblib.load(TARGET_ENCODER_FILE)
-        self.feature_order = list(getattr(self.model, "feature_names_in_", [])) or list(self.feature_encoders.keys()) + ["cyber_trust_score", "future_risk_score"]
+    def __init__(self):
+        self.model = model
+        self.feature_encoders = feature_encoders
+        self.target_encoder = target_encoder
 
-    def validate_and_encode(self, features: Dict[str, Any]) -> pd.DataFrame:
-        normalized = normalize_features(features)
-        trust_score = int(features.get("cyber_trust_score") or calculate_trust_score(normalized))
-        future_risk_score = int(features.get("future_risk_score") or calculate_future_risk_score(normalized, trust_score))
-        row: Dict[str, Any] = {}
-        invalid: list[str] = []
-        for field in self.feature_order:
-            if field == "cyber_trust_score":
-                row[field] = trust_score
-                continue
-            if field == "future_risk_score":
-                row[field] = future_risk_score
-                continue
-            encoder = self.feature_encoders[field]
-            value = normalized.get(field)
-            if value not in set(map(str, encoder.classes_)):
-                invalid.append(f"{field}={value!r}")
-                value = str(encoder.classes_[0])
-            row[field] = int(encoder.transform([value])[0])
-        if invalid:
-            raise ValueError("Invalid categorical values: " + ", ".join(invalid))
-        return pd.DataFrame([row], columns=self.feature_order)
+    def predict(self, user_data):
+        return predict_risk(user_data)
 
-    def predict(self, features: Dict[str, Any]) -> Dict[str, Any]:
-        normalized = normalize_features(features)
-        trust_score = calculate_trust_score(normalized)
-        future_risk_score = calculate_future_risk_score(normalized, trust_score)
-        encoded = self.validate_and_encode({**normalized, "cyber_trust_score": trust_score, "future_risk_score": future_risk_score})
-        pred = self.model.predict(encoded)[0]
-        risk_level = str(self.target_encoder.inverse_transform([int(pred)])[0])
-        if risk_level not in {"Low", "Medium", "High"}:
-            risk_level = risk_from_score(trust_score)
-        confidence = 0.0
-        if hasattr(self.model, "predict_proba"):
-            probabilities = self.model.predict_proba(encoded)[0]
-            confidence = float(np.max(probabilities))
-        return {
-            "risk_level": risk_level,
-            "cyber_trust_score": trust_score,
-            "future_risk_score": future_risk_score,
-            "confidence": round(confidence, 4),
-            "risk_factors": analyze_risk_factors(normalized),
-            "recommendations": build_recommendations(normalized),
-            "security_category_status": category_status(normalized),
-            "features": normalized,
-            "model_file": MODEL_FILE.name,
-            "feature_order": self.feature_order,
+
+prediction_service = PredictionService()
+
+
+def get_prediction_service() -> PredictionService:
+    return prediction_service
+
+
+# ============================================================
+# FEATURES USED BY THE MODEL
+# ============================================================
+
+CATEGORICAL_FEATURES = [
+    "occupation_category",
+    "password_management",
+    "password_change_frequency",
+    "password_length",
+    "mfa_type",
+    "mfa_coverage",
+    "device_encryption",
+    "os_update_status",
+    "vpn_usage",
+    "public_wifi_usage",
+    "auto_connect_disabled",
+    "phishing_detection",
+    "security_training",
+    "https_awareness",
+    "breach_exposure",
+    "antivirus_status",
+    "login_monitoring",
+    "backup_frequency",
+    "browser_password_storage",
+    "software_source",
+    "account_alerts_enabled",
+    "cloud_backup_enabled",
+    "social_media_privacy",
+    "shared_device_usage",
+    "email_security_level",
+    "past_phishing_clicks"
+]
+
+
+# ============================================================
+# ENCODE FEATURES
+# ============================================================
+
+def encode_features(user_data):
+    """
+    Convert categorical cybersecurity features into
+    the numerical representation used during training.
+    """
+
+    df = pd.DataFrame([user_data])
+
+    # --------------------------------------------------------
+    # Encode categorical columns
+    # --------------------------------------------------------
+
+    for column in CATEGORICAL_FEATURES:
+
+        if column not in df.columns:
+            raise ValueError(
+                f"Missing required feature: {column}"
+            )
+
+        encoder = feature_encoders[column]
+
+        try:
+            df[column] = encoder.transform(
+                df[column].astype(str)
+            )
+
+        except Exception as e:
+
+            raise ValueError(
+                f"Invalid value '{df[column].iloc[0]}' "
+                f"for feature '{column}'. "
+                f"Error: {str(e)}"
+            )
+
+    # --------------------------------------------------------
+    # Numeric features
+    # --------------------------------------------------------
+
+    numeric_features = [
+        "cyber_trust_score",
+        "future_risk_score"
+    ]
+
+    for column in numeric_features:
+
+        if column not in df.columns:
+            raise ValueError(
+                f"Missing required numeric feature: {column}"
+            )
+
+        df[column] = pd.to_numeric(
+            df[column],
+            errors="coerce"
+        )
+
+    # --------------------------------------------------------
+    # Make sure there are no missing values
+    # --------------------------------------------------------
+
+    if df.isnull().sum().sum() > 0:
+
+        missing_columns = df.columns[
+            df.isnull().any()
+        ].tolist()
+
+        raise ValueError(
+            f"Missing or invalid values in: "
+            f"{missing_columns}"
+        )
+
+    # --------------------------------------------------------
+    # IMPORTANT:
+    # user_id is NOT used by the model
+    # risk_level is NOT an input feature
+    # --------------------------------------------------------
+
+    return df
+
+
+# ============================================================
+# PREDICT RISK
+# ============================================================
+
+def predict_risk(user_data):
+    """
+    Generate cybersecurity risk prediction.
+
+    Returns:
+        predicted class
+        predicted risk level
+        probabilities
+    """
+
+    features = normalize_features(user_data or {})
+    trust_score = calculate_trust_score(features)
+    future_risk_score = calculate_future_risk_score(features, trust_score)
+    model_input = {
+        **features,
+        "cyber_trust_score": trust_score,
+        "future_risk_score": future_risk_score,
+    }
+
+    # Prepare encoded data
+    X = encode_features(model_input)
+
+    # --------------------------------------------------------
+    # Model prediction
+    # --------------------------------------------------------
+
+    prediction = model.predict(X)[0]
+
+    # --------------------------------------------------------
+    # Convert encoded target back to original label
+    # --------------------------------------------------------
+
+    try:
+
+        predicted_label = target_encoder.inverse_transform(
+            [prediction]
+        )[0]
+
+    except Exception:
+
+        # Fallback if target encoder is not available
+        label_mapping = {
+            0: "High",
+            1: "Low",
+            2: "Medium"
         }
 
+        predicted_label = label_mapping.get(
+            int(prediction),
+            "Unknown"
+        )
 
-@lru_cache
-def get_prediction_service() -> PredictionService:
-    return PredictionService()
+    # --------------------------------------------------------
+    # Prediction probabilities
+    # --------------------------------------------------------
 
+    probabilities = {}
 
-def predict_risk(features: Dict[str, Any]) -> Dict[str, Any]:
-    return get_prediction_service().predict(features)
+    if hasattr(model, "predict_proba"):
+
+        probability_values = model.predict_proba(X)[0]
+
+        try:
+
+            classes = target_encoder.inverse_transform(
+                model.classes_.astype(int)
+            )
+
+        except Exception:
+
+            classes = [
+                "High",
+                "Low",
+                "Medium"
+            ]
+
+        for label, probability in zip(
+            classes,
+            probability_values
+        ):
+
+            probabilities[str(label)] = round(
+                float(probability),
+                4
+            )
+
+    # --------------------------------------------------------
+    # Return result
+    # --------------------------------------------------------
+
+    confidence = max(probabilities.values()) if probabilities else 0
+
+    return {
+        "prediction": int(prediction),
+        "risk_level": str(predicted_label),
+        "probabilities": probabilities,
+        "features": features,
+        "cyber_trust_score": trust_score,
+        "future_risk_score": future_risk_score,
+        "confidence": confidence,
+        "risk_factors": analyze_risk_factors(features),
+        "recommendations": build_recommendations(features),
+        "security_category_status": category_status(features),
+    }

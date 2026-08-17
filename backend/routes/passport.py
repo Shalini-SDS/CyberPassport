@@ -1,35 +1,49 @@
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Response
 
-from database.collections import ASSESSMENTS, USERS
 from database.connection import get_database
-from services.passport import build_passport, generate_passport_pdf
+from services.passport import generate_passport_pdf, generate_passport_png, passport_by_identifier, verify_passport
 
 router = APIRouter(prefix="/api/passport", tags=["Passport"])
 
 
-@router.get("/{user_id}", summary="Get current CyberPassport")
-def get_passport(user_id: str):
+@router.get("/verify/{passport_id}", summary="Verify a public CyberPassport")
+def verify_public_passport(passport_id: str):
     db = get_database()
+    return verify_passport(db, passport_id)
+
+
+@router.get("/{identifier}", summary="Get current CyberPassport")
+def get_passport(identifier: str):
     try:
-        user = db[USERS].find_one({"_id": ObjectId(user_id)})
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid user id") from exc
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    assessment = db[ASSESSMENTS].find_one({"user_id": user_id}, sort=[("created_at", -1)])
-    user["id"] = str(user["_id"])
-    if assessment:
-        assessment["id"] = str(assessment["_id"])
-    return build_passport(user, assessment)
+        return passport_by_identifier(get_database(), identifier)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.get("/{user_id}/download", summary="Download current CyberPassport PDF")
-def download_passport(user_id: str):
-    passport = get_passport(user_id)
+@router.get("/{identifier}/download", summary="Download current CyberPassport PDF")
+def download_passport(identifier: str):
+    passport = get_passport(identifier)
     pdf = generate_passport_pdf(passport)
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={passport['passport_id']}.pdf"},
+    )
+
+
+@router.get("/{identifier}/pdf", summary="Download current CyberPassport PDF")
+def download_passport_pdf(identifier: str):
+    return download_passport(identifier)
+
+
+@router.get("/{identifier}/image", summary="Download current CyberPassport PNG")
+def download_passport_image(identifier: str):
+    passport = get_passport(identifier)
+    png = generate_passport_png(passport)
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Content-Disposition": f"attachment; filename={passport['passport_id']}.png"},
     )

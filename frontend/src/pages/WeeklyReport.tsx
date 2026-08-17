@@ -1,40 +1,88 @@
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts'
+import { useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
 import type { Page } from '../App'
+import { apiFetch, getCurrentUser } from '../lib/api'
 
 interface Props { navigate: (p: Page) => void }
 
+const normalizeScore = (value: unknown) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.max(0, Math.min(100, numeric))
+}
+
 const trendData = [
-  { w: 'W1', score: 618 }, { w: 'W2', score: 634 }, { w: 'W3', score: 651 },
-  { w: 'W4', score: 680 }, { w: 'W5', score: 695 }, { w: 'W6', score: 712 },
-  { w: 'W7', score: 730 }, { w: 'W8', score: 742 },
+  { w: 'W1', score: 48 }, { w: 'W2', score: 52 }, { w: 'W3', score: 58 },
+  { w: 'W4', score: 62 }, { w: 'W5', score: 66 }, { w: 'W6', score: 72 },
+  { w: 'W7', score: 78 }, { w: 'W8', score: 84 },
 ]
 
 const improvements = [
-  { icon: '🛡️', text: 'Enabled MFA on all primary accounts', date: 'Jul 8' },
-  { icon: '💻', text: 'Updated device to latest OS version', date: 'Jul 5' },
-  { icon: '🔑', text: 'Migrated to password manager', date: 'Jul 1' },
-  { icon: '☁️', text: 'Enabled automated cloud backups', date: 'Jun 28' },
+  { icon: '🛡️', text: 'Assessment data has been refreshed', date: 'Today' },
+  { icon: '💻', text: 'Device security and policy checks are in review', date: 'Today' },
+  { icon: '🔑', text: 'Password hygiene recommendations are being tracked', date: 'Today' },
+  { icon: '☁️', text: 'Backup and resilience actions are enabled', date: 'Today' },
 ]
 
 const riskAreas = [
-  { icon: '🌐', text: 'Occasional public WiFi without VPN', level: 'Medium' },
-  { icon: '💻', text: 'Firmware update pending on secondary device', level: 'Low' },
-  { icon: '🛡️', text: 'MFA not yet enabled on 3 accounts', level: 'High' },
-]
-
-const history = [
-  { period: 'Week 8 · Jul 8', score: 742, prev: 730, risk: 'LOW', change: +12 },
-  { period: 'Week 7 · Jul 1', score: 730, prev: 712, risk: 'LOW', change: +18 },
-  { period: 'Week 6 · Jun 24', score: 712, prev: 695, risk: 'LOW', change: +17 },
-  { period: 'Week 5 · Jun 17', score: 695, prev: 680, risk: 'LOW', change: +15 },
-  { period: 'Week 4 · Jun 10', score: 680, prev: 651, risk: 'MED', change: +29 },
-  { period: 'Week 3 · Jun 3', score: 651, prev: 634, risk: 'MED', change: +17 },
-  { period: 'Week 2 · May 27', score: 634, prev: 618, risk: 'MED', change: +16 },
-  { period: 'Week 1 · May 20', score: 618, prev: 618, risk: 'MED', change: 0 },
+  { icon: '🌐', text: 'Public Wi-Fi exposure', level: 'Medium' },
+  { icon: '💻', text: 'Software update compliance', level: 'Low' },
+  { icon: '🛡️', text: 'Multi-factor coverage gaps', level: 'High' },
 ]
 
 export default function WeeklyReport({ navigate }: Props) {
+  const [dashboardData, setDashboardData] = useState<any>(null)
+
+  useEffect(() => {
+    const user = getCurrentUser()
+    if (!user) {
+      navigate('login')
+      return
+    }
+
+    apiFetch<any>(`/api/dashboard/${user.id}`)
+      .then(setDashboardData)
+      .catch(() => setDashboardData(null))
+  }, [navigate])
+
+  const trend = useMemo(() => {
+    const source = dashboardData?.risk_trend?.length ? dashboardData.risk_trend : trendData
+    return source.map((item: any) => ({ ...item, score: normalizeScore(item.score) }))
+  }, [dashboardData])
+
+  const history = useMemo(() => {
+    const source = Array.isArray(dashboardData?.history) && dashboardData.history.length > 0 ? dashboardData.history : []
+    return source.map((row: any, index: number) => {
+      const score = normalizeScore(row.trust_score)
+      const prev = index === 0 ? score : normalizeScore(source[index - 1]?.trust_score ?? score)
+      const change = score - prev
+      return {
+        period: row.date ? row.date : `Week ${index + 1}`,
+        score,
+        prev,
+        risk: (row.risk_level || 'Unknown').toUpperCase(),
+        change,
+      }
+    })
+  }, [dashboardData])
+
+  const currentScore = normalizeScore(dashboardData?.cyber_trust_score ?? trend[trend.length - 1]?.score ?? 0)
+  const previousScore = normalizeScore(history.length > 1 ? history[history.length - 2]?.score : currentScore)
+  const scoreDelta = currentScore - previousScore
+
+  const riskSummary = dashboardData?.top_risk_factors?.length ? dashboardData.top_risk_factors.map((factor: any, index: number) => ({
+    icon: ['🌐', '💻', '🛡️'][index % 3],
+    text: typeof factor === 'string' ? factor : factor?.issue || factor?.label || 'Security concern',
+    level: dashboardData.risk_level || 'Medium',
+  })) : riskAreas
+
+  const reportImprovements = dashboardData?.recommendations?.length ? dashboardData.recommendations.slice(0, 4).map((item: any, index: number) => ({
+    icon: ['🛡️', '💻', '🔑', '☁️'][index % 4],
+    text: item.title || item.message || item.recommendation || 'Updated recommendation',
+    date: item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today',
+  })) : improvements
+
   return (
     <AppShell navigate={navigate} current="weekly">
       <div style={{ padding: '32px 36px', minHeight: '100vh' }}>
@@ -46,10 +94,10 @@ export default function WeeklyReport({ navigate }: Props) {
         {/* Score summary row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
           {[
-            { label: 'Current Score', value: '742', sub: 'This week', color: 'var(--emerald)' },
-            { label: 'Previous Score', value: '730', sub: 'Last week', color: 'var(--text)' },
-            { label: 'Improvement', value: '+12', sub: 'Points gained', color: 'var(--success)' },
-            { label: 'Risk Trend', value: '↓ Declining', sub: 'Improving', color: 'var(--success)' },
+            { label: 'Current Score', value: String(currentScore), sub: 'This week', color: 'var(--emerald)' },
+            { label: 'Previous Score', value: String(previousScore), sub: 'Last week', color: 'var(--text)' },
+            { label: 'Improvement', value: `${scoreDelta >= 0 ? '+' : ''}${scoreDelta}`, sub: 'Points gained', color: 'var(--success)' },
+            { label: 'Risk Trend', value: scoreDelta >= 0 ? '↓ Declining' : '↑ Rising', sub: scoreDelta >= 0 ? 'Improving' : 'Needs attention', color: 'var(--success)' },
           ].map((s) => (
             <div key={s.label} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', boxShadow: 'var(--shadow)' }}>
               <div style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500, marginBottom: 6 }}>{s.label}</div>
@@ -63,10 +111,10 @@ export default function WeeklyReport({ navigate }: Props) {
         <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px', marginBottom: 20, boxShadow: 'var(--shadow)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
             <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Score Trend</h2>
-            <span style={{ fontSize: 11, color: 'var(--text-2)' }}>+124 pts in 8 weeks</span>
+            <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{trend.length > 1 ? `${trend[trend.length - 1].score - trend[0].score >= 0 ? '+' : ''}${trend[trend.length - 1].score - trend[0].score} pts in ${trend.length} periods` : 'Live trend data'}</span>
           </div>
           <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={trendData}>
+            <AreaChart data={trend}>
               <defs>
                 <linearGradient id="weekGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#0B4D43" stopOpacity={0.1} />
@@ -74,7 +122,7 @@ export default function WeeklyReport({ navigate }: Props) {
                 </linearGradient>
               </defs>
               <XAxis dataKey="w" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis domain={[580, 780]} tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+              <YAxis domain={[0, 100]} tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
               <Tooltip contentStyle={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
               <Area type="monotone" dataKey="score" stroke="var(--emerald)" strokeWidth={2.5} fill="url(#weekGrad)" dot={false} />
             </AreaChart>
@@ -87,7 +135,7 @@ export default function WeeklyReport({ navigate }: Props) {
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px', boxShadow: 'var(--shadow)' }}>
             <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>Security Improvements</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {improvements.map((item, i) => (
+              {reportImprovements.map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--success-bg)', borderRadius: 10, border: '1px solid rgba(22,163,74,0.12)' }}>
                   <span style={{ fontSize: 18 }}>{item.icon}</span>
                   <div style={{ flex: 1 }}>
@@ -104,7 +152,7 @@ export default function WeeklyReport({ navigate }: Props) {
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px', boxShadow: 'var(--shadow)' }}>
             <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>Risk Areas</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {riskAreas.map((item, i) => {
+              {riskSummary.map((item, i) => {
                 const color = item.level === 'High' ? 'var(--risk)' : item.level === 'Medium' ? 'var(--warning)' : 'var(--text-2)'
                 const bg = item.level === 'High' ? 'var(--risk-bg)' : item.level === 'Medium' ? 'var(--warning-bg)' : 'var(--bg)'
                 const border = item.level === 'High' ? 'rgba(220,38,38,0.12)' : item.level === 'Medium' ? 'rgba(245,158,11,0.15)' : 'var(--border)'

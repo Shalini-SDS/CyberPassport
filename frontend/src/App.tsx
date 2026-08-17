@@ -9,6 +9,7 @@ import Passport from './pages/Passport'
 import WeeklyReport from './pages/WeeklyReport'
 import Recommendations from './pages/Recommendations'
 import ProfileSettings from './pages/ProfileSettings'
+import VerifyPassport from './pages/VerifyPassport'
 
 export type Page =
   | 'landing'
@@ -23,6 +24,8 @@ export type Page =
   | 'settings'
 
 export default function App() {
+  if (window.location.pathname.startsWith('/verify/')) return <VerifyPassport />
+
   const [page, setPage] = useState<Page>('landing')
 
   const navigate = (p: Page) => {
