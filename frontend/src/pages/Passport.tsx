@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
 import type { Page } from '../App'
-import { apiFetch, downloadPassportImage, downloadPassportPdf, getCurrentUser } from '../lib/api'
+import { apiFetch, assetUrl, downloadPassportImage, downloadPassportPdf, getCurrentUser } from '../lib/api'
 import './passport.css'
 
 interface Props { navigate: (p: Page) => void }
@@ -38,7 +38,7 @@ const normalizeUrl = (url: string) => url?.startsWith('http') ? url : `https://$
 
 function PassportPhoto({ passport }: { passport: PassportData }) {
   if (passport.photo_url) {
-    return <img className="cp-photo" src={passport.photo_url} alt="" />
+    return <img className="cp-photo" src={assetUrl(passport.photo_url)} alt="Profile" />
   }
   return (
     <div className="cp-photo cp-photoFallback" aria-hidden="true">
@@ -190,7 +190,7 @@ export default function Passport({ navigate }: Props) {
       navigate('login')
       return
     }
-    apiFetch<PassportData>(`/api/passport/${user.id}`)
+    apiFetch<PassportData>('/api/passport/me')
       .then(setPassport)
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load passport'))
   }, [navigate, user])
@@ -236,8 +236,8 @@ export default function Passport({ navigate }: Props) {
             <PassportDocument passport={passport} />
 
             <div className="cp-actions">
-              <button onClick={() => runAction('Downloading PDF...', () => downloadPassportPdf(user?.id || ''))}>Download PDF</button>
-              <button onClick={() => runAction('Downloading image...', () => downloadPassportImage(user?.id || ''))}>Download Image</button>
+              <button onClick={() => runAction('Downloading PDF...', () => downloadPassportPdf())}>Download PDF</button>
+              <button onClick={() => runAction('Downloading image...', () => downloadPassportImage())}>Download Image</button>
               <button onClick={() => runAction('Sharing passport...', sharePassport)}>Share</button>
               <button onClick={() => window.print()}>Print</button>
             </div>

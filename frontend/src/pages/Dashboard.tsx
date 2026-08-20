@@ -12,27 +12,6 @@ const normalizeScore = (value: unknown) => {
   return Math.max(0, Math.min(100, numeric))
 }
 
-const weeklyData = [
-  { w: 'W1', score: 48 }, { w: 'W2', score: 52 }, { w: 'W3', score: 58 },
-  { w: 'W4', score: 62 }, { w: 'W5', score: 66 }, { w: 'W6', score: 72 },
-  { w: 'W7', score: 78 }, { w: 'W8', score: 84 },
-]
-
-const securityHealth = [
-  { label: 'Password Security', icon: '🔑', status: 'good', score: 87 },
-  { label: 'MFA Coverage', icon: '🛡️', status: 'good', score: 90 },
-  { label: 'Device Protection', icon: '💻', status: 'fair', score: 78 },
-  { label: 'Network Safety', icon: '🌐', status: 'fair', score: 72 },
-  { label: 'Backup Health', icon: '☁️', status: 'good', score: 83 },
-]
-
-const activity = [
-  { icon: '✓', text: 'Assessment completed', time: 'recently', color: 'var(--success)' },
-  { icon: '⬡', text: 'Passport generated', time: 'recently', color: 'var(--emerald)' },
-  { icon: '↑', text: 'Trust score updated', time: 'recently', color: 'var(--gold)' },
-  { icon: '◆', text: 'Recommendations refreshed', time: 'recently', color: 'var(--emerald-mid)' },
-]
-
 function ScoreGauge({ score }: { score: number }) {
   const max = 100
   const pct = score / max
@@ -68,14 +47,18 @@ export default function Dashboard({ navigate }: Props) {
       navigate('login')
       return
     }
-    apiFetch<any>(`/api/dashboard/${user.id}`).then(setData).catch(err => setError(err instanceof Error ? err.message : 'Could not load dashboard'))
+    apiFetch<any>('/api/dashboard/me').then(setData).catch(err => setError(err instanceof Error ? err.message : 'Could not load dashboard'))
   }, [])
 
   const score = normalizeScore(data?.cyber_trust_score)
   const risk = data?.risk_level ?? 'Unknown'
-  const chartData = data?.risk_trend?.length ? data.risk_trend.map((item: any) => ({ ...item, score: normalizeScore(item.score) })) : weeklyData
-  const health = data?.security_category_status?.length ? data.security_category_status : securityHealth
+  const chartData = data?.risk_trend?.map((item: any) => ({ ...item, score: normalizeScore(item.score) })) || []
+  const health = data?.security_category_status || []
   const userName = data?.user?.name || getCurrentUser()?.name || 'CyberPassport User'
+  const activity = [
+    ...(data?.recent_assessments || []).slice(0, 4).map((item: any) => ({ icon: '✓', text: 'Assessment completed', time: item.created_at ? new Date(item.created_at).toLocaleDateString() : 'recently', color: 'var(--success)' })),
+    ...(data?.recommendations || []).length ? [{ icon: '◆', text: 'Recommendations refreshed', time: 'recently', color: 'var(--emerald-mid)' }] : [],
+  ]
 
   const thisMonthDelta = useMemo(() => {
     if (!Array.isArray(data?.history) || data.history.length < 2) return 0
@@ -138,7 +121,7 @@ export default function Dashboard({ navigate }: Props) {
               <span style={{ fontSize: 11, color: 'var(--text-2)' }}>All Domains</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {health.map((item: any) => {
+              {health.length ? health.map((item: any) => {
                 const color = item.status === 'good' ? 'var(--success)' : item.status === 'fair' ? 'var(--warning)' : 'var(--risk)'
                 const bg = item.status === 'good' ? 'var(--success-bg)' : item.status === 'fair' ? 'var(--warning-bg)' : 'var(--risk-bg)'
                 return (
@@ -153,7 +136,7 @@ export default function Dashboard({ navigate }: Props) {
                     </div>
                   </div>
                 )
-              })}
+              }) : <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-2)', fontSize: 13 }}>Complete your assessment to see security health across all domains.</div>}
             </div>
           </div>
 
@@ -168,7 +151,7 @@ export default function Dashboard({ navigate }: Props) {
                 { label: 'Recommendations', icon: '◆', page: 'recommendations' as Page, primary: false },
                 { label: 'Update Profile', icon: '◉', page: 'settings' as Page, primary: false },
               ].map((action) => (
-                <button key={action.label} onClick={() => action.download ? downloadPassportPdf(getCurrentUser()?.id || '') : navigate(action.page)} style={{
+                <button key={action.label} onClick={() => action.download ? downloadPassportPdf() : navigate(action.page)} style={{
                   background: action.primary ? 'var(--emerald)' : 'var(--bg)',
                   border: action.primary ? 'none' : '1px solid var(--border)',
                   borderRadius: 10, color: action.primary ? '#fff' : 'var(--text)',
@@ -193,7 +176,7 @@ export default function Dashboard({ navigate }: Props) {
               <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Score Trend</h2>
               <button onClick={() => navigate('weekly')} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Weekly Report →</button>
             </div>
-            <ResponsiveContainer width="100%" height={140}>
+            {chartData.length ? <ResponsiveContainer width="100%" height={140}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
@@ -206,14 +189,14 @@ export default function Dashboard({ navigate }: Props) {
                 <Tooltip contentStyle={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
                 <Area type="monotone" dataKey="score" stroke="var(--emerald)" strokeWidth={2} fill="url(#grad)" dot={false} />
               </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : <div style={{ height: 140, display: 'grid', placeItems: 'center', color: 'var(--text-2)', fontSize: 13 }}>Your score trend will appear after your first assessment.</div>}
           </div>
 
           {/* Recent Activity */}
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 20px', boxShadow: 'var(--shadow)' }}>
             <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>Recent Activity</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {activity.map((item, i) => (
+              {activity.length ? activity.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: i < activity.length - 1 ? 14 : 0, marginBottom: i < activity.length - 1 ? 14 : 0, borderBottom: i < activity.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <div style={{ width: 30, height: 30, borderRadius: '50%', background: `${item.color}15`, border: `1px solid ${item.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: item.color, flexShrink: 0 }}>{item.icon}</div>
                   <div>
@@ -221,7 +204,7 @@ export default function Dashboard({ navigate }: Props) {
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{item.time}</div>
                   </div>
                 </div>
-              ))}
+              )) : <div style={{ padding: '18px 0', color: 'var(--text-2)', fontSize: 13 }}>No account activity yet.</div>}
             </div>
           </div>
         </div>

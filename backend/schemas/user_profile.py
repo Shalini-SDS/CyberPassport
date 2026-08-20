@@ -80,6 +80,17 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("New password must be at least 8 characters")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 bytes or fewer")
+        if not any(char.isupper() for char in value) or not any(char.isdigit() for char in value):
+            raise ValueError("New password must include an uppercase letter and a number")
+        return value
+
 
 class UserProfileUpdate(BaseModel):
     name: Optional[str] = None
@@ -91,3 +102,23 @@ class UserProfileUpdate(BaseModel):
     bio: Optional[str] = None
     dob: Optional[str] = None
     gender: Optional[str] = None
+
+
+class NotificationPreferences(BaseModel):
+    security_alerts: bool = True
+    weekly_report: bool = True
+    recommendation_updates: bool = True
+    passport_notifications: bool = True
+    assessment_reminders: bool = False
+
+
+class PrivacyPreferences(BaseModel):
+    visibility: str = "verification_only"
+    anonymous_data_sharing: bool = False
+
+    @field_validator("visibility")
+    @classmethod
+    def validate_visibility(cls, value: str) -> str:
+        if value not in {"public", "private", "verification_only"}:
+            raise ValueError("Invalid profile visibility")
+        return value

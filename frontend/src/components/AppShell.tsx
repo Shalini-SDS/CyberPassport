@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Page } from '../App'
-import { apiFetch, fetchCurrentUser, getCurrentUser } from '../lib/api'
+import { apiFetch, assetUrl, fetchCurrentUser, getCurrentUser } from '../lib/api'
 
 interface Props {
   navigate: (p: Page) => void
@@ -29,13 +29,13 @@ export default function AppShell({ navigate, current, children }: Props) {
       try {
         const freshUser = await fetchCurrentUser()
         setUser(freshUser)
-        apiFetch<any>(`/api/dashboard/${freshUser.id}`).then(data => {
+        apiFetch<any>('/api/dashboard/me').then(data => {
           setScore(data.cyber_trust_score || 0)
           setRisk(data.risk_level || 'Unknown')
         }).catch(() => {})
       } catch {
         setUser(currentUser)
-        apiFetch<any>(`/api/dashboard/${currentUser.id}`).then(data => {
+        apiFetch<any>('/api/dashboard/me').then(data => {
           setScore(data.cyber_trust_score || 0)
           setRisk(data.risk_level || 'Unknown')
         }).catch(() => {})
@@ -87,12 +87,12 @@ export default function AppShell({ navigate, current, children }: Props) {
             justifyContent: 'space-between',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
+              {user?.profile_photo_url ? <img src={assetUrl(user.profile_photo_url)} alt="Profile" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{
                 width: 36, height: 36, borderRadius: '50%',
                 background: 'var(--emerald)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 14, color: '#fff', fontWeight: 600, flexShrink: 0,
-              }}>{initials || 'CP'}</div>
+              }}>{initials || 'CP'}</div>}
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
                 <div style={{ fontSize: 10, color: 'var(--emerald-mid)', fontFamily: 'Inter, sans-serif', fontWeight: 500, marginTop: 1 }}>Trust Score: {score}</div>

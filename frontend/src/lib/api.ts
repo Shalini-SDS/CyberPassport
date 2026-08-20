@@ -20,6 +20,10 @@ export type CurrentUser = {
   id: string
   name: string
   email: string
+  passport_id?: string
+  trust_score?: number
+  risk_level?: string
+  profile_photo_url?: string
   profile?: Record<string, unknown>
 }
 
@@ -49,9 +53,20 @@ export function updateCurrentUser(user: Partial<CurrentUser>) {
 }
 
 export async function fetchCurrentUser(): Promise<CurrentUser> {
-  const current = getCurrentUser()
-  if (!current) throw new Error('No current user')
-  return apiFetch<CurrentUser>(`/api/users/${current.id}`)
+  const user = await apiFetch<CurrentUser>('/api/users/me')
+  setSession(getToken() || '', user)
+  return user
+}
+
+export function assetUrl(value?: string) {
+  if (!value) return ''
+  return value.startsWith('http') ? value : `${API_URL}${value}`
+}
+
+export async function uploadProfilePhoto(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiFetch<{ profile_photo_url: string; user: CurrentUser }>('/api/users/me/photo', { method: 'POST', body })
 }
 
 export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -79,7 +94,9 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
     let message = 'Request failed'
     try {
       const data = await res.json()
-      message = data.detail || message
+      message = Array.isArray(data.detail)
+        ? data.detail.map((item: { msg?: string }) => item.msg || 'Invalid request').join('; ')
+        : data.detail || message
     } catch {
       message = await res.text()
     }
@@ -88,21 +105,21 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   return res.json()
 }
 
-export async function downloadPassportPdf(userId: string) {
-  await downloadPassportAsset(userId, 'download', 'pdf')
+export async function downloadPassportPdf() {
+  await downloadPassportAsset('download', 'pdf')
 }
 
-export async function downloadPassportImage(userId: string) {
-  await downloadPassportAsset(userId, 'image', 'png')
+export async function downloadPassportImage() {
+  await downloadPassportAsset('image', 'png')
 }
 
-async function downloadPassportAsset(identifier: string, endpoint: 'download' | 'image', extension: 'pdf' | 'png') {
+async function downloadPassportAsset(endpoint: 'download' | 'image', extension: 'pdf' | 'png') {
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   let res: Response
   try {
-    res = await fetch(`${API_URL}/api/passport/${identifier}/${endpoint}`, {
+    res = await fetch(`${API_URL}/api/passport/me/${endpoint}`, {
       headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : undefined,
       signal: controller.signal,
     })
@@ -120,7 +137,7 @@ async function downloadPassportAsset(identifier: string, endpoint: 'download' | 
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `CyberPassport-${identifier}.${extension}`
+  a.download = `CyberPassport.${extension}`
   a.click()
   URL.revokeObjectURL(url)
 }

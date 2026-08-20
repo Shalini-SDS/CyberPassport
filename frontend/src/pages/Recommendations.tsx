@@ -5,16 +5,6 @@ import { apiFetch, getCurrentUser } from '../lib/api'
 
 interface Props { navigate: (p: Page) => void }
 
-const recs = [
-  { id: 1, icon: '🛡️', title: 'Enable Hardware Security Key', priority: 'Critical', impact: '+45 pts', effort: '1 hour', done: false, desc: 'Upgrade from SMS-based 2FA to a FIDO2 hardware key on your most critical accounts to prevent SIM-swap attacks.' },
-  { id: 2, icon: '🛡️', title: 'Enable MFA on 3 Remaining Accounts', priority: 'High', impact: '+22 pts', effort: '15 min', done: false, desc: 'Three accounts (LinkedIn, GitHub secondary, and email newsletter tool) do not have any second-factor authentication.' },
-  { id: 3, icon: '💻', title: 'Update Device Firmware', priority: 'High', impact: '+18 pts', effort: '10 min', done: false, desc: 'Your device firmware 14.2.1 is 4 versions behind. Version 14.6 contains 11 critical security patches.' },
-  { id: 4, icon: '🌐', title: 'Install a VPN', priority: 'High', impact: '+16 pts', effort: '30 min', done: false, desc: 'No active VPN detected. Unencrypted traffic is observable by ISPs and adversaries on public networks.' },
-  { id: 5, icon: '🔑', title: 'Migrate to a Password Manager', priority: 'Medium', impact: '+14 pts', effort: '2 hours', done: true, desc: 'Browser-stored passwords are accessible to any extension. A dedicated password manager encrypts your vault.' },
-  { id: 6, icon: '🧠', title: 'Complete Phishing Simulation Training', priority: 'Medium', impact: '+11 pts', effort: '90 min', done: true, desc: 'Security awareness training reduces phishing click rates by up to 72%. Your last training was 18 months ago.' },
-  { id: 7, icon: '☁️', title: 'Review Connected App Permissions', priority: 'Low', impact: '+8 pts', effort: '20 min', done: false, desc: '23 connected apps detected — 9 are inactive but retain full read/write access to your accounts.' },
-]
-
 const priorityColors: Record<string, { bg: string; text: string; border: string }> = {
   Critical: { bg: 'var(--risk-bg)', text: 'var(--risk)', border: 'rgba(220,38,38,0.2)' },
   High: { bg: 'var(--warning-bg)', text: 'var(--warning)', border: 'rgba(245,158,11,0.2)' },
@@ -24,8 +14,8 @@ const priorityColors: Record<string, { bg: string; text: string; border: string 
 
 export default function Recommendations({ navigate }: Props) {
   const [filter, setFilter] = useState<'All' | 'Critical' | 'High' | 'Medium' | 'Low'>('All')
-  const [items, setItems] = useState<any[]>(recs)
-  const [done, setDone] = useState<Set<number | string>>(new Set(recs.filter(r => r.done).map(r => r.id)))
+  const [items, setItems] = useState<any[]>([])
+  const [done, setDone] = useState<Set<number | string>>(new Set())
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -34,12 +24,10 @@ export default function Recommendations({ navigate }: Props) {
       navigate('login')
       return
     }
-    apiFetch<any[]>(`/api/recommendations/${user.id}`).then(data => {
-      if (data.length) {
-        const mapped = data.map((r) => ({ ...r, icon: '◆', desc: r.reason || r.recommendation || r.issue, done: r.completed }))
-        setItems(mapped)
-        setDone(new Set(mapped.filter(r => r.completed).map(r => r.id)))
-      }
+    apiFetch<any[]>('/api/recommendations/me').then(data => {
+      const mapped = data.map((r) => ({ ...r, icon: '◆', desc: r.reason || r.recommendation || r.issue, done: r.completed }))
+      setItems(mapped)
+      setDone(new Set(mapped.filter(r => r.completed).map(r => r.id)))
     }).catch(err => setError(err instanceof Error ? err.message : 'Could not load recommendations'))
   }, [])
 

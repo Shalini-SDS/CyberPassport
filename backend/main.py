@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from database.connection import close_mongo_connection, connect_to_mongo
 from routes import assessment, auth, dashboard, health, history, passport, prediction, recommendations, scenarios, users
@@ -70,3 +71,4 @@ app.include_router(history.router)
 app.include_router(dashboard.router)
 app.include_router(scenarios.router)
 app.include_router(passport.router)
+app.mount("/uploads", StaticFiles(directory=Path(__file__).resolve().parent / "uploads", check_dir=False), name="uploads")

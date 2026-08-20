@@ -3,16 +3,19 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from datetime import datetime, timedelta, timezone
+import calendar
+from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from uuid import uuid4
 
 from bson import ObjectId
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from reportlab.graphics import renderPDF
 from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
+from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.pdfgen import canvas
@@ -35,6 +38,14 @@ def as_date_text(value: Any, fallback: Optional[datetime] = None) -> str:
     if hasattr(value, "date"):
         return value.date().isoformat()
     return str(value)[:10]
+
+
+def add_months(value: datetime, months: int) -> datetime:
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return value.replace(year=year, month=month, day=day)
 
 
 def normalize_score(value: Any) -> int:
@@ -133,7 +144,8 @@ def build_passport(
     user_id = str(user.get("id") or user.get("_id") or assessment.get("user_id") or passport_record.get("user_id") or "")
     issued = passport_record.get("issued_at") or assessment.get("created_at") or utc_now()
     issued_text = as_date_text(issued)
-    expiry_text = as_date_text(passport_record.get("expiry_date"), datetime.fromisoformat(issued_text).replace(tzinfo=timezone.utc) + timedelta(days=365))
+    issued_datetime = datetime.fromisoformat(issued_text).replace(tzinfo=timezone.utc)
+    expiry_text = as_date_text(add_months(issued_datetime, 2))
     passport_id = passport_record.get("passport_id") or assessment.get("passport_id") or f"CP-{utc_now().year}-{uuid4().hex[:8].upper()}"
     risk_level = assessment.get("risk_level") or passport_record.get("risk_level") or "Unknown"
     score = normalize_score(assessment.get("cyber_trust_score", passport_record.get("cyber_trust_score", 0)))
@@ -161,7 +173,7 @@ def build_passport(
         "status": status,
         "country": profile.get("country") or assessment.get("profile", {}).get("country") or "Not Provided",
         "occupation": profile.get("occupation") or assessment.get("profile", {}).get("occupation") or "Not Provided",
-        "photo_url": profile.get("photo_url") or profile.get("profile_photo") or "",
+        "photo_url": profile.get("profile_photo_url") or profile.get("photo_url") or profile.get("profile_photo") or "",
         "verification_url": verification_url,
         "issuing_authority": AUTHORITY,
         "major_risk_factors": [risk_factor_text(item) for item in (assessment.get("risk_factors") or [])[:5]],
@@ -252,7 +264,8 @@ def verify_passport(db: Any, passport_id: str) -> Dict[str, Any]:
     authentic = bool(stored_hash and stored_hash == computed_hash)
     valid = active and not expired and authentic
 
-    return {
+    visibility = ((find_user(db, str(record.get("user_id", ""))).get("preferences", {}) or {}).get("privacy", {}) or {}).get("visibility", "verification_only")
+    response = {
         "valid": valid,
         "status": "Valid / Authentic" if valid else "Invalid",
         "passport_id": passport["passport_id"],
@@ -267,6 +280,14 @@ def verify_passport(db: Any, passport_id: str) -> Dict[str, Any]:
         "expired": expired,
         "active": active,
     }
+    if visibility == "private":
+        response["holder_name"] = "Private profile"
+        response["cyber_trust_score"] = None
+        response["risk_level"] = "Private"
+    elif visibility == "verification_only":
+        response["cyber_trust_score"] = None
+        response["risk_level"] = "Not disclosed"
+    return response
 
 
 def qr_matrix(value: str) -> List[List[bool]]:
@@ -296,6 +317,14 @@ def draw_pdf_qr(c: canvas.Canvas, value: str, x: float, y: float, size: float) -
     drawing = Drawing(size, size, transform=[size / (bounds[2] - bounds[0]), 0, 0, size / (bounds[3] - bounds[1]), 0, 0])
     drawing.add(widget)
     renderPDF.draw(drawing, c, x, y)
+
+
+def stored_photo_path(photo_url: str) -> Optional[Path]:
+    if not photo_url:
+        return None
+    name = os.path.basename(photo_url)
+    path = Path(__file__).resolve().parent.parent / "uploads" / name
+    return path if path.is_file() else None
 
 
 def generate_passport_pdf(passport: Dict[str, Any]) -> bytes:
@@ -333,9 +362,13 @@ def generate_passport_pdf(passport: Dict[str, Any]) -> bytes:
     x = margin
     c.setFillColor(colors.white)
     c.roundRect(x + 20, y + 108, 88, 112, 6, stroke=1, fill=1)
-    c.setFillColor(colors.HexColor("#DCEBE7"))
-    c.circle(x + 64, y + 176, 20, stroke=0, fill=1)
-    c.roundRect(x + 38, y + 128, 52, 34, 14, stroke=0, fill=1)
+    photo_path = stored_photo_path(passport.get("photo_url", ""))
+    if photo_path:
+        c.drawImage(ImageReader(str(photo_path)), x + 22, y + 110, width=84, height=108, preserveAspectRatio=True, anchor="c", mask="auto")
+    else:
+        c.setFillColor(colors.HexColor("#DCEBE7"))
+        c.circle(x + 64, y + 176, 20, stroke=0, fill=1)
+        c.roundRect(x + 38, y + 128, 52, 34, 14, stroke=0, fill=1)
     c.setFillColor(ink)
     c.setFont("Helvetica-Bold", 8)
     fields = [
@@ -459,9 +492,19 @@ def generate_passport_png(passport: Dict[str, Any]) -> bytes:
         draw.text((x + 34, y + 26), "CYBERPASSPORT", fill="#FFFFFF", font=font(36, True))
         draw.text((x + 36, y + 72), "DIGITAL IDENTITY PASSPORT", fill="#D9C58D", font=font(15, True))
 
-    draw.rounded_rectangle((left + 34, y + 168, left + 180, y + 352), radius=12, fill="#FFFFFF", outline=gold, width=2)
-    draw.ellipse((left + 79, y + 206, left + 135, y + 262), fill="#C9DDD8")
-    draw.rounded_rectangle((left + 58, y + 272, left + 156, y + 330), radius=30, fill="#C9DDD8")
+    photo_box = (left + 34, y + 168, left + 180, y + 352)
+    draw.rounded_rectangle(photo_box, radius=12, fill="#FFFFFF", outline=gold, width=2)
+    photo_path = stored_photo_path(passport.get("photo_url", ""))
+    if photo_path:
+        with Image.open(photo_path) as source:
+            photo = ImageOps.exif_transpose(source).convert("RGB")
+            photo.thumbnail((136, 176), Image.Resampling.LANCZOS)
+            px = left + 34 + (146 - photo.width) // 2
+            py = y + 168 + (184 - photo.height) // 2
+            image.paste(photo, (px, py))
+    else:
+        draw.ellipse((left + 79, y + 206, left + 135, y + 262), fill="#C9DDD8")
+        draw.rounded_rectangle((left + 58, y + 272, left + 156, y + 330), radius=30, fill="#C9DDD8")
 
     fields = [
         ("PASSPORT NO.", passport["passport_id"]),

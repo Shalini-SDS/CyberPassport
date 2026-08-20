@@ -90,7 +90,7 @@ export default function Register({ navigate }: Props) {
             {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
             <div>
               <label style={labelStyle}>Full Legal Name</label>
-              <input type="text" placeholder="Alexandra Chen" value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} required style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--emerald)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-2)'} />
+              <input type="text" placeholder="Your full name" value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} required style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--emerald)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-2)'} />
             </div>
             <div>
               <label style={labelStyle}>Email Address</label>

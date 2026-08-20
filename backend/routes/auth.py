@@ -1,15 +1,24 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo.errors import DuplicateKeyError
 
 from database.collections import USERS
 from database.connection import get_database
-from schemas.user_profile import TokenResponse, UserCreate, UserLogin
+from schemas.user_profile import PasswordChange, TokenResponse, UserCreate, UserLogin
 from utils.encoding import public_user
+from utils.auth import current_user
 from utils.security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+@router.post("/change-password", summary="Change the authenticated user's password")
+def change_password(payload: PasswordChange, user=Depends(current_user)):
+    if not verify_password(payload.current_password, user.get("password_hash", "")):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    get_database()[USERS].update_one({"_id": user["_id"]}, {"$set": {"password_hash": hash_password(payload.new_password), "updated_at": datetime.now(timezone.utc)}})
+    return {"ok": True, "message": "Password changed successfully."}
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, summary="Register a user")

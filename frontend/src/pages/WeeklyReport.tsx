@@ -12,25 +12,6 @@ const normalizeScore = (value: unknown) => {
   return Math.max(0, Math.min(100, numeric))
 }
 
-const trendData = [
-  { w: 'W1', score: 48 }, { w: 'W2', score: 52 }, { w: 'W3', score: 58 },
-  { w: 'W4', score: 62 }, { w: 'W5', score: 66 }, { w: 'W6', score: 72 },
-  { w: 'W7', score: 78 }, { w: 'W8', score: 84 },
-]
-
-const improvements = [
-  { icon: '🛡️', text: 'Assessment data has been refreshed', date: 'Today' },
-  { icon: '💻', text: 'Device security and policy checks are in review', date: 'Today' },
-  { icon: '🔑', text: 'Password hygiene recommendations are being tracked', date: 'Today' },
-  { icon: '☁️', text: 'Backup and resilience actions are enabled', date: 'Today' },
-]
-
-const riskAreas = [
-  { icon: '🌐', text: 'Public Wi-Fi exposure', level: 'Medium' },
-  { icon: '💻', text: 'Software update compliance', level: 'Low' },
-  { icon: '🛡️', text: 'Multi-factor coverage gaps', level: 'High' },
-]
-
 export default function WeeklyReport({ navigate }: Props) {
   const [dashboardData, setDashboardData] = useState<any>(null)
 
@@ -41,13 +22,13 @@ export default function WeeklyReport({ navigate }: Props) {
       return
     }
 
-    apiFetch<any>(`/api/dashboard/${user.id}`)
+    apiFetch<any>('/api/dashboard/me')
       .then(setDashboardData)
       .catch(() => setDashboardData(null))
   }, [navigate])
 
   const trend = useMemo(() => {
-    const source = dashboardData?.risk_trend?.length ? dashboardData.risk_trend : trendData
+    const source = dashboardData?.risk_trend || []
     return source.map((item: any) => ({ ...item, score: normalizeScore(item.score) }))
   }, [dashboardData])
 
@@ -75,13 +56,13 @@ export default function WeeklyReport({ navigate }: Props) {
     icon: ['🌐', '💻', '🛡️'][index % 3],
     text: typeof factor === 'string' ? factor : factor?.issue || factor?.label || 'Security concern',
     level: dashboardData.risk_level || 'Medium',
-  })) : riskAreas
+  })) : []
 
   const reportImprovements = dashboardData?.recommendations?.length ? dashboardData.recommendations.slice(0, 4).map((item: any, index: number) => ({
     icon: ['🛡️', '💻', '🔑', '☁️'][index % 4],
     text: item.title || item.message || item.recommendation || 'Updated recommendation',
     date: item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today',
-  })) : improvements
+  })) : []
 
   return (
     <AppShell navigate={navigate} current="weekly">
@@ -113,7 +94,7 @@ export default function WeeklyReport({ navigate }: Props) {
             <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Score Trend</h2>
             <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{trend.length > 1 ? `${trend[trend.length - 1].score - trend[0].score >= 0 ? '+' : ''}${trend[trend.length - 1].score - trend[0].score} pts in ${trend.length} periods` : 'Live trend data'}</span>
           </div>
-          <ResponsiveContainer width="100%" height={160}>
+          {trend.length ? <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={trend}>
               <defs>
                 <linearGradient id="weekGrad" x1="0" y1="0" x2="0" y2="1">
@@ -126,7 +107,7 @@ export default function WeeklyReport({ navigate }: Props) {
               <Tooltip contentStyle={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
               <Area type="monotone" dataKey="score" stroke="var(--emerald)" strokeWidth={2.5} fill="url(#weekGrad)" dot={false} />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveContainer> : <div style={{ height: 160, display: 'grid', placeItems: 'center', color: 'var(--text-2)', fontSize: 13 }}>Your score trend will appear after your first assessment.</div>}
         </div>
 
         {/* Improvements + Risk Areas */}
@@ -135,7 +116,7 @@ export default function WeeklyReport({ navigate }: Props) {
           <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px', boxShadow: 'var(--shadow)' }}>
             <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>Security Improvements</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {reportImprovements.map((item, i) => (
+              {reportImprovements.length ? reportImprovements.map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--success-bg)', borderRadius: 10, border: '1px solid rgba(22,163,74,0.12)' }}>
                   <span style={{ fontSize: 18 }}>{item.icon}</span>
                   <div style={{ flex: 1 }}>
@@ -144,7 +125,7 @@ export default function WeeklyReport({ navigate }: Props) {
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 700 }}>✓</span>
                 </div>
-              ))}
+              )) : <div style={{ padding: '18px 0', color: 'var(--text-2)', fontSize: 13 }}>Complete an assessment to see security improvements here.</div>}
             </div>
           </div>
 

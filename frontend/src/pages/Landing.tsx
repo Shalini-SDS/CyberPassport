@@ -105,21 +105,21 @@ export default function Landing({ navigate }: Props) {
                 <div style={{ display: 'flex', gap: 14, marginBottom: 16, alignItems: 'center' }}>
                   <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--emerald-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--emerald)', fontWeight: 700, flexShrink: 0 }}>A</div>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: 'Playfair Display, serif' }}>Alexandra Chen</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>CP-2024-00891</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: 'Playfair Display, serif' }}>Your Digital Identity</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>Issued after your assessment</div>
                   </div>
                 </div>
                 <div style={{ background: 'var(--emerald-light)', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
                   <div style={{ fontSize: 10, color: 'var(--emerald-mid)', fontWeight: 600, letterSpacing: '0.06em', marginBottom: 6 }}>CYBER TRUST SCORE</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 32, fontWeight: 700, color: 'var(--emerald)' }}>84</div>
+                    <div style={{ fontFamily: 'Playfair Display, serif', fontSize: 22, fontWeight: 700, color: 'var(--emerald)' }}>Not scored</div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: 10, color: 'var(--text-2)' }}>out of 100</div>
                       <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600, marginTop: 2 }}>● LOW RISK</div>
                     </div>
                   </div>
                   <div style={{ height: 5, background: 'rgba(11,77,67,0.12)', borderRadius: 3, marginTop: 10, overflow: 'hidden' }}>
-                    <div style={{ width: '84%', height: '100%', background: 'linear-gradient(90deg, var(--emerald), var(--gold))', borderRadius: 3 }} />
+                    <div style={{ width: '0%', height: '100%', background: 'linear-gradient(90deg, var(--emerald), var(--gold))', borderRadius: 3 }} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>

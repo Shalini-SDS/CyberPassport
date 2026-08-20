@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { Page } from '../App'
-import { apiFetch, fetchCurrentUser, getCurrentUser, setSession } from '../lib/api'
+import { apiFetch, assetUrl, fetchCurrentUser, getCurrentUser, setSession, uploadProfilePhoto } from '../lib/api'
 
 interface Props { navigate: (p: Page) => void }
 
 export default function ProfileSetup({ navigate }: Props) {
   const [form, setForm] = useState({
-    name: '', dob: '', gender: '', country: 'GB', occupation: '',
-    email: '', phone: '', linkedin: '', bio: '',
+    name: '', dob: '', gender: '', country: '', occupation: '',
+    email: '', phone: '', linkedin: '', bio: '', photoUrl: '',
   })
   const [photoHover, setPhotoHover] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -25,12 +25,13 @@ export default function ProfileSetup({ navigate }: Props) {
         name: fetched.name || '',
         dob: String((fetched.profile as any)?.dob || ''),
         gender: String((fetched.profile as any)?.gender || ''),
-        country: String((fetched.profile as any)?.country || 'GB'),
+        country: String((fetched.profile as any)?.country || ''),
         occupation: String((fetched.profile as any)?.occupation || ''),
         email: fetched.email || '',
         phone: String((fetched.profile as any)?.phone || ''),
         linkedin: String((fetched.profile as any)?.linkedin || ''),
         bio: String((fetched.profile as any)?.bio || ''),
+        photoUrl: fetched.profile_photo_url || '',
       })
     }).catch(() => {})
   }, [])
@@ -44,7 +45,11 @@ export default function ProfileSetup({ navigate }: Props) {
     setSaving(true)
     setMessage('')
     try {
-      const updated = await apiFetch<any>(`/api/users/${user.id}`, { method: 'PUT', body: JSON.stringify(form) })
+      if (!form.name.trim() || !form.dob || !form.country || !form.occupation.trim() || !form.email.trim()) {
+        setMessage('Complete all required fields before saving')
+        return false
+      }
+      const updated = await apiFetch<any>('/api/users/me', { method: 'PATCH', body: JSON.stringify({ name: form.name, dob: form.dob, gender: form.gender, country: form.country, occupation: form.occupation, email: form.email, phone: form.phone, linkedin: form.linkedin, bio: form.bio }) })
       setSession(localStorage.getItem('cp_token') || '', updated)
       setMessage('Profile saved')
       return true
@@ -53,6 +58,19 @@ export default function ProfileSetup({ navigate }: Props) {
       return false
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handlePhoto = async (file?: File) => {
+    if (!file) return
+    setMessage('Uploading...')
+    try {
+      const result = await uploadProfilePhoto(file)
+      setForm((previous) => ({ ...previous, photoUrl: result.profile_photo_url }))
+      setSession(localStorage.getItem('cp_token') || '', result.user)
+      setMessage('Profile photo updated successfully.')
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Could not upload photo')
     }
   }
 
@@ -107,15 +125,15 @@ export default function ProfileSetup({ navigate }: Props) {
                 transition: 'all 0.15s',
               }}
             >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                {form.photoUrl ? <img src={assetUrl(form.photoUrl)} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="8" r="4" fill={photoHover ? 'rgba(255,255,255,0.6)' : 'var(--emerald)'} fillOpacity={0.6} />
                 <path d="M4 20 Q4 14 12 14 Q20 14 20 20" fill={photoHover ? 'rgba(255,255,255,0.5)' : 'var(--emerald)'} fillOpacity={0.4} />
-              </svg>
+                </svg>}
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Profile Photo</div>
               <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 8 }}>Upload a clear photo for your passport.</div>
-              <button style={{ background: 'none', border: '1px solid var(--border-2)', borderRadius: 7, color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: '6px 14px' }}>Upload Photo</button>
+              <label style={{ background: 'none', border: '1px solid var(--border-2)', borderRadius: 7, color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 500, padding: '6px 14px', display: 'inline-block' }}>Upload Photo<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => handlePhoto(event.target.files?.[0])} /></label>
             </div>
           </div>
 

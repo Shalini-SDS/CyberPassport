@@ -2,19 +2,21 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from database.collections import ASSESSMENTS, PASSPORTS, RECOMMENDATIONS, RISK_HISTORY, USERS
 from database.connection import get_database
 from schemas.assessment import AssessmentRequest, AssessmentResponse
 from services.prediction import predict_risk
+from utils.auth import current_user
 
 router = APIRouter(prefix="/api/assessment", tags=["Assessment"])
 
 
 @router.post("", response_model=AssessmentResponse, summary="Submit a cybersecurity assessment")
-def submit_assessment(payload: AssessmentRequest):
+def submit_assessment(payload: AssessmentRequest, user=Depends(current_user)):
     db = get_database()
+    payload.user_id = user["id"]
     try:
         user_oid = ObjectId(payload.user_id)
     except Exception as exc:
@@ -35,7 +37,7 @@ def submit_assessment(payload: AssessmentRequest):
         "risk_factors": result["risk_factors"],
         "recommendations": result["recommendations"],
         "security_category_status": result["security_category_status"],
-        "passport_id": f"CP-{now.year}-{uuid4().hex[:8].upper()}",
+        "passport_id": (db[PASSPORTS].find_one({"user_id": payload.user_id}) or {}).get("passport_id") or f"CP-{now.year}-{uuid4().hex[:8].upper()}",
         "created_at": now,
     }
     inserted = db[ASSESSMENTS].insert_one(doc)

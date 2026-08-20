@@ -123,9 +123,14 @@ export default function Assessment({ navigate }: Props) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: 'Inter, sans-serif', padding: '0 0 60px' }}>
         {/* Top bar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 28, height: 28, background: 'var(--emerald)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontFamily: 'Playfair Display, serif', fontWeight: 700 }}>CP</div>
-          <span style={{ fontFamily: 'Playfair Display, serif', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>CyberPassport</span>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 28, height: 28, background: 'var(--emerald)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontFamily: 'Playfair Display, serif', fontWeight: 700 }}>CP</div>
+            <span style={{ fontFamily: 'Playfair Display, serif', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>CyberPassport</span>
+          </div>
+          <button onClick={() => navigate('dashboard')} style={{ background: 'none', border: '1px solid var(--border-2)', borderRadius: 8, color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '8px 12px' }}>
+            ← Back to Dashboard
+          </button>
         </div>
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '48px 20px 0' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
@@ -169,7 +174,12 @@ export default function Assessment({ navigate }: Props) {
           <div style={{ width: 28, height: 28, background: 'var(--emerald)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontFamily: 'Playfair Display, serif', fontWeight: 700 }}>CP</div>
           <span style={{ fontFamily: 'Playfair Display, serif', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Cyber Assessment</span>
         </div>
-        <span style={{ fontSize: 12, color: 'var(--text-2)' }}>~{totalTime} min remaining</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-2)' }}>~{totalTime} min remaining</span>
+          <button onClick={() => navigate('dashboard')} style={{ background: 'none', border: '1px solid var(--border-2)', borderRadius: 8, color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, fontWeight: 600, padding: '8px 12px' }}>
+            ← Back to Dashboard
+          </button>
+        </div>
       </div>
 
       {/* Progress */}

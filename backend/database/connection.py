@@ -69,6 +69,8 @@ def create_indexes(db: Database) -> None:
     db[RISK_HISTORY].create_index([("user_id", ASCENDING), ("date", ASCENDING)])
     db[RECOMMENDATIONS].create_index([("user_id", ASCENDING), ("completed", ASCENDING)])
     db[SCENARIO_RESULTS].create_index([("user_id", ASCENDING), ("created_at", ASCENDING)])
+    db["passports"].create_index([("user_id", ASCENDING)], unique=True)
+    db["passports"].create_index([("passport_id", ASCENDING)], unique=True, sparse=True)
 
 
 @lru_cache

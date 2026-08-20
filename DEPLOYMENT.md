@@ -30,6 +30,7 @@ gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bin
 MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
 DATABASE_NAME=cyberpassport
 FRONTEND_URL=https://your-vercel-app.vercel.app
+PUBLIC_BASE_URL=https://your-vercel-app.vercel.app
 JWT_SECRET=generate-a-strong-secret
 ```
 

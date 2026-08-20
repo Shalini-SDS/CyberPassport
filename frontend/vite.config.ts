@@ -15,6 +15,7 @@ const emitSourcemaps = process.env.EMIT_SOURCEMAPS === 'true'
 // Vite config — https://vitejs.dev/config/
 export default defineConfig({
   base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
+  appType: 'spa',
   build: {
     sourcemap: emitSourcemaps ? 'inline' : false,
     minify: !emitSourcemaps,

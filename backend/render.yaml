@@ -16,6 +16,8 @@ services:
         value: cyberpassport
       - key: FRONTEND_URL
         value: https://your-vercel-app.vercel.app
+      - key: PUBLIC_BASE_URL
+        value: https://your-vercel-app.vercel.app
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET

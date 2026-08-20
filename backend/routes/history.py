@@ -1,13 +1,16 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
 from database.collections import RISK_HISTORY
 from database.connection import get_database
+from utils.auth import current_user
 
 router = APIRouter(prefix="/api/history", tags=["History"])
 
 
 @router.get("/{user_id}", summary="Get risk history")
-def get_history(user_id: str):
+def get_history(user_id: str, user=Depends(current_user)):
+    if user_id != user["id"]:
+        raise HTTPException(status_code=403, detail="You cannot access another user's history")
     rows = list(get_database()[RISK_HISTORY].find({"user_id": user_id}).sort("date", 1))
     return [{
         "date": row["date"].isoformat() if hasattr(row.get("date"), "isoformat") else str(row.get("date")),

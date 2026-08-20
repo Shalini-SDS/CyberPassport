@@ -1,15 +1,27 @@
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from database.collections import ASSESSMENTS, RECOMMENDATIONS, RISK_HISTORY, USERS
 from database.connection import get_database
 from utils.encoding import public_user
+from utils.auth import current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 
+@router.get("/me", summary="Get dashboard data for the authenticated user")
+def get_my_dashboard(user=Depends(current_user)):
+    return build_dashboard(user["id"])
+
+
 @router.get("/{user_id}", summary="Get dashboard data")
-def get_dashboard(user_id: str):
+def get_dashboard(user_id: str, user=Depends(current_user)):
+    if user_id != user["id"]:
+        raise HTTPException(status_code=403, detail="You cannot access another user's dashboard")
+    return build_dashboard(user_id)
+
+
+def build_dashboard(user_id: str):
     db = get_database()
     try:
         user = db[USERS].find_one({"_id": ObjectId(user_id)})
