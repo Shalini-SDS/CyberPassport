@@ -98,20 +98,6 @@ export default function AppShell({ navigate, current, children }: Props) {
                 <div style={{ fontSize: 10, color: 'var(--emerald-mid)', fontFamily: 'Inter, sans-serif', fontWeight: 500, marginTop: 1 }}>Trust Score: {score}</div>
               </div>
             </div>
-            <button
-              onClick={() => {
-                localStorage.removeItem('cp_token')
-                localStorage.removeItem('cp_user')
-                navigate('login')
-              }}
-              style={{
-                background: 'none', border: '1px solid var(--border-2)', borderRadius: 8,
-                color: 'var(--text-2)', cursor: 'pointer', fontSize: 12,
-                padding: '8px 12px', fontWeight: 600,
-              }}
-            >
-              Sign out
-            </button>
           </div>
         </div>
 
@@ -145,6 +131,20 @@ export default function AppShell({ navigate, current, children }: Props) {
 
         {/* Bottom trust bar */}
         <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
+          <button
+            onClick={() => {
+              localStorage.removeItem('cp_token')
+              localStorage.removeItem('cp_user')
+              navigate('login')
+            }}
+            style={{
+              width: '100%', background: 'none', border: '1px solid var(--border-2)', borderRadius: 8,
+              color: 'var(--text-2)', cursor: 'pointer', fontSize: 12,
+              padding: '8px 12px', fontWeight: 600, marginBottom: 14,
+            }}
+          >
+            Sign out
+          </button>
           <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 6 }}>Cyber Trust Score</div>
           <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', marginBottom: 5 }}>
             <div style={{ width: `${score}%`, height: '100%', background: 'linear-gradient(90deg, var(--emerald), var(--gold))', borderRadius: 3 }} />

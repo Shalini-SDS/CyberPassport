@@ -497,10 +497,9 @@ def generate_passport_png(passport: Dict[str, Any]) -> bytes:
     photo_path = stored_photo_path(passport.get("photo_url", ""))
     if photo_path:
         with Image.open(photo_path) as source:
-            photo = ImageOps.exif_transpose(source).convert("RGB")
-            photo.thumbnail((136, 176), Image.Resampling.LANCZOS)
-            px = left + 34 + (146 - photo.width) // 2
-            py = y + 168 + (184 - photo.height) // 2
+            photo = ImageOps.fit(ImageOps.exif_transpose(source).convert("RGB"), (136, 176), method=Image.Resampling.LANCZOS)
+            px = left + 39
+            py = y + 172
             image.paste(photo, (px, py))
     else:
         draw.ellipse((left + 79, y + 206, left + 135, y + 262), fill="#C9DDD8")
@@ -544,7 +543,11 @@ def generate_passport_png(passport: Dict[str, Any]) -> bytes:
         ("VERIFY", passport["verification_url"]),
     ]:
         draw.text((dx, dy), label, fill="#63706C", font=font(11, True))
-        draw.text((dx + 128, dy), str(value)[:32], fill=ink, font=font(13))
+        if label == "VERIFY":
+            draw.text((dx + 128, dy), str(value)[:24], fill=ink, font=font(11))
+            draw.text((dx + 128, dy + 16), str(value)[24:48], fill=ink, font=font(11))
+        else:
+            draw.text((dx + 128, dy), str(value)[:32], fill=ink, font=font(13))
         dy += 34
 
     draw.rectangle((right, y + panel_h - 42, right + panel_w, y + panel_h), fill=emerald)

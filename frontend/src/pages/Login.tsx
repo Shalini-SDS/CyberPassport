@@ -6,6 +6,8 @@ interface Props { navigate: (p: Page) => void }
 
 export default function Login({ navigate }: Props) {
   const [form, setForm] = useState({ email: '', password: '' })
+  const [resetCode, setResetCode] = useState('')
+  const [resetStep, setResetStep] = useState<'login' | 'request' | 'reset'>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -22,6 +24,35 @@ export default function Login({ navigate }: Props) {
       navigate('dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const requestReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await apiFetch('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: form.email }) })
+      setResetStep('reset')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send reset code')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await apiFetch('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email: form.email, code: resetCode, new_password: form.password }) })
+      setResetStep('login')
+      setError('Password reset. You can now sign in.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reset password')
     } finally {
       setLoading(false)
     }
@@ -66,7 +97,23 @@ export default function Login({ navigate }: Props) {
             <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>256-bit encrypted secure session</span>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {resetStep === 'request' ? (
+            <form onSubmit={requestReset} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
+              <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>Enter your account email and we will send a password reset code.</p>
+              <input type="email" placeholder="your@email.com" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} required style={inputStyle} />
+              <button type="submit" disabled={loading} style={{ background: 'var(--gold)', border: 'none', borderRadius: 10, color: 'var(--text)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, padding: '14px' }}>{loading ? 'Sending…' : 'Send Reset Code'}</button>
+              <button type="button" onClick={() => setResetStep('login')} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 12 }}>Back to sign in</button>
+            </form>
+          ) : resetStep === 'reset' ? (
+            <form onSubmit={resetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
+              <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>Enter the code sent to {form.email}, then choose a new password.</p>
+              <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="Reset code" value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))} required style={inputStyle} />
+              <input type="password" placeholder="New password" value={form.password} onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))} required style={inputStyle} />
+              <button type="submit" disabled={loading} style={{ background: 'var(--gold)', border: 'none', borderRadius: 10, color: 'var(--text)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, padding: '14px' }}>{loading ? 'Resetting…' : 'Reset Password'}</button>
+            </form>
+          ) : <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>Email</label>
@@ -75,7 +122,7 @@ export default function Login({ navigate }: Props) {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Password</label>
-                <button type="button" style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>Forgot password?</button>
+                <button type="button" onClick={() => { setError(''); setResetStep('request') }} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>Forgot password?</button>
               </div>
               <input type="password" placeholder="Your password" value={form.password} onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))} required style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--emerald)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-2)'} />
             </div>
@@ -88,7 +135,7 @@ export default function Login({ navigate }: Props) {
             }}>
               {loading ? 'Authenticating…' : 'Access Portal →'}
             </button>
-          </form>
+          </form>}
 
           <div style={{ textAlign: 'center', marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
             <span style={{ fontSize: 13, color: 'var(--text-2)' }}>No passport? </span>

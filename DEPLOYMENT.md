@@ -32,6 +32,11 @@ DATABASE_NAME=cyberpassport
 FRONTEND_URL=https://your-vercel-app.vercel.app
 PUBLIC_BASE_URL=https://your-vercel-app.vercel.app
 JWT_SECRET=generate-a-strong-secret
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your-smtp-username
+SMTP_PASSWORD=your-smtp-password
+SMTP_FROM=no-reply@example.com
 ```
 
 7. Save and deploy.

@@ -6,6 +6,8 @@ interface Props { navigate: (p: Page) => void }
 
 export default function Register({ navigate }: Props) {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
+  const [code, setCode] = useState('')
+  const [verificationStep, setVerificationStep] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -19,12 +21,11 @@ export default function Register({ navigate }: Props) {
     setLoading(true)
     setError('')
     try {
-      const data = await apiFetch<{ access_token: string; user: any }>('/api/auth/register', {
+      await apiFetch<{ message: string }>('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
       })
-      setSession(data.access_token, data.user)
-      navigate('profile-setup')
+      setVerificationStep(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -86,7 +87,38 @@ export default function Register({ navigate }: Props) {
             <p style={{ fontSize: 13, color: 'var(--text-2)', margin: 0 }}>Already have an account? <button onClick={() => navigate('login')} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: 0 }}>Sign in</button></p>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {verificationStep ? (
+            <form onSubmit={async (event) => {
+              event.preventDefault()
+              setLoading(true)
+              setError('')
+              try {
+                const data = await apiFetch<{ access_token: string; user: any }>('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ email: form.email, code }) })
+                setSession(data.access_token, data.user)
+                navigate('profile-setup')
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Verification failed')
+              } finally {
+                setLoading(false)
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
+              <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>Enter the 6-digit code sent to {form.email}.</p>
+              <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="Verification code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} required style={inputStyle} />
+              <button type="submit" disabled={loading} style={{ background: loading ? '#6B7280' : 'var(--emerald)', border: 'none', borderRadius: 10, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, padding: '14px' }}>
+                {loading ? 'Verifying…' : 'Verify Email →'}
+              </button>
+              <button type="button" disabled={loading} onClick={async () => {
+                setError('')
+                try {
+                  await apiFetch('/api/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email: form.email }) })
+                  setError('A new verification code was sent.')
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Could not resend code')
+                }
+              }} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 12 }}>Resend code</button>
+            </form>
+          ) : <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
             <div>
               <label style={labelStyle}>Full Legal Name</label>
@@ -120,7 +152,7 @@ export default function Register({ navigate }: Props) {
             }}>
               {loading ? 'Creating Account…' : 'Create Passport Account →'}
             </button>
-          </form>
+          </form>}
         </div>
       </div>
     </div>

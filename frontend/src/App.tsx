@@ -32,6 +32,10 @@ function pageForPath(pathname: string): Page {
   return 'landing'
 }
 
+function isVerificationPath(pathname: string) {
+  return /^\/verify\/[^/]+\/?$/.test(pathname)
+}
+
 const protectedPages = new Set<Page>(['profile-setup', 'assessment', 'dashboard', 'passport', 'weekly', 'recommendations', 'settings'])
 
 export default function App() {
@@ -50,7 +54,7 @@ export default function App() {
     window.scrollTo(0, 0)
   }
 
-  if (path.startsWith('/verify/')) return <VerifyPassport />
+  if (isVerificationPath(path)) return <VerifyPassport />
   const page = pageForPath(path)
   if (protectedPages.has(page) && !localStorage.getItem('cp_token')) {
     if (path !== '/login') window.history.replaceState({}, '', `/login?returnTo=${encodeURIComponent(path)}`)

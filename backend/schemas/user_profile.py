@@ -71,6 +71,36 @@ class UserLogin(BaseModel):
         return value
 
 
+class EmailCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailVerification(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6)
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordReset(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6)
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be 72 bytes or fewer")
+        if not any(char.isupper() for char in value) or not any(char.isdigit() for char in value):
+            raise ValueError("Password must include an uppercase letter and a number")
+        return value
+
+
 class TokenResponse(BaseModel):
     access_token: str
     user: Dict[str, Any]
