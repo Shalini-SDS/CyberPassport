@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from database.collections import ASSESSMENTS, PASSPORTS, RECOMMENDATIONS, RISK_HISTORY, USERS
 from database.connection import get_database
 from schemas.assessment import AssessmentRequest, AssessmentResponse
+from services.passport import ensure_passport_for_user
 from services.prediction import predict_risk
 from utils.auth import current_user
 
@@ -53,4 +54,5 @@ def submit_assessment(payload: AssessmentRequest, user=Depends(current_user)):
     if rec_docs:
         db[RECOMMENDATIONS].insert_many(rec_docs)
     db[PASSPORTS].update_one({"user_id": payload.user_id}, {"$set": {"user_id": payload.user_id, "assessment_id": str(inserted.inserted_id), "passport_id": doc["passport_id"], "updated_at": now}}, upsert=True)
+    ensure_passport_for_user(db, payload.user_id)
     return AssessmentResponse(assessment_id=str(inserted.inserted_id), **{k: doc[k] for k in ["risk_level", "cyber_trust_score", "future_risk_score", "confidence", "risk_factors", "recommendations", "security_category_status"]})

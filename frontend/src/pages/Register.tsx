@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import type { Page } from '../App'
 import { apiFetch, setSession } from '../lib/api'
+import { countries } from '../lib/countries'
 
 interface Props { navigate: (p: Page) => void }
 
 export default function Register({ navigate }: Props) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
+  const [form, setForm] = useState({ name: '', email: '', country: '', password: '', confirm: '' })
   const [code, setCode] = useState('')
   const [verificationStep, setVerificationStep] = useState(false)
   const [showPass, setShowPass] = useState(false)
@@ -23,7 +24,7 @@ export default function Register({ navigate }: Props) {
     try {
       await apiFetch<{ message: string }>('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
+        body: JSON.stringify({ name: form.name, email: form.email, country: form.country, password: form.password }),
       })
       setVerificationStep(true)
     } catch (err) {
@@ -127,6 +128,13 @@ export default function Register({ navigate }: Props) {
             <div>
               <label style={labelStyle}>Email Address</label>
               <input type="email" placeholder="you@example.com" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} required style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--emerald)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-2)'} />
+            </div>
+            <div>
+              <label style={labelStyle}>Country</label>
+              <select value={form.country} onChange={(e) => setForm(p => ({ ...p, country: e.target.value }))} required style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--emerald)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-2)'}>
+                <option value="">Select...</option>
+                {countries.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
+              </select>
             </div>
             <div>
               <label style={labelStyle}>Password</label>

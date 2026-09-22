@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Page } from '../App'
 import { apiFetch, assetUrl, fetchCurrentUser, getCurrentUser, setSession, uploadProfilePhoto } from '../lib/api'
+import { countries } from '../lib/countries'
 
 interface Props { navigate: (p: Page) => void }
 
@@ -157,13 +158,8 @@ export default function ProfileSetup({ navigate }: Props) {
             <div>
               <label style={labelStyle}>Country *</label>
               <select value={form.country} onChange={(e) => setForm(p => ({ ...p, country: e.target.value }))} style={inputStyle}>
-                <option value="GB">United Kingdom</option>
-                <option value="US">United States</option>
-                <option value="CA">Canada</option>
-                <option value="AU">Australia</option>
-                <option value="SG">Singapore</option>
-                <option value="DE">Germany</option>
-                <option value="OTHER">Other</option>
+                <option value="">Select...</option>
+                {countries.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
               </select>
             </div>
             <div>

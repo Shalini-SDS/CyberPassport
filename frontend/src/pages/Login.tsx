@@ -7,7 +7,8 @@ interface Props { navigate: (p: Page) => void }
 export default function Login({ navigate }: Props) {
   const [form, setForm] = useState({ email: '', password: '' })
   const [resetCode, setResetCode] = useState('')
-  const [resetStep, setResetStep] = useState<'login' | 'request' | 'reset'>('login')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [resetStep, setResetStep] = useState<'login' | 'request' | 'reset' | 'verify'>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -23,7 +24,17 @@ export default function Login({ navigate }: Props) {
       setSession(data.access_token, data.user)
       navigate('dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      const message = err instanceof Error ? err.message : 'Login failed'
+      setError(message)
+      if (message.toLowerCase().includes('verify your email')) {
+        setResetStep('verify')
+        try {
+          await apiFetch('/api/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email: form.email }) })
+          setError('A new verification code was sent. It expires in 10 minutes.')
+        } catch (resendErr) {
+          setError(resendErr instanceof Error ? resendErr.message : message)
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -53,6 +64,42 @@ export default function Login({ navigate }: Props) {
       setError('Password reset. You can now sign in.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reset password')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resendVerification = async () => {
+    if (!form.email) {
+      setError('Enter your email first.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      await apiFetch('/api/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email: form.email }) })
+      setResetStep('verify')
+      setError('A new verification code was sent. It expires in 10 minutes.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send verification code')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const verifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      const data = await apiFetch<{ access_token: string; user: any }>('/api/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ email: form.email, code: verificationCode }),
+      })
+      setSession(data.access_token, data.user)
+      navigate('dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification failed')
     } finally {
       setLoading(false)
     }
@@ -113,6 +160,16 @@ export default function Login({ navigate }: Props) {
               <input type="password" placeholder="New password" value={form.password} onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))} required style={inputStyle} />
               <button type="submit" disabled={loading} style={{ background: 'var(--gold)', border: 'none', borderRadius: 10, color: 'var(--text)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, padding: '14px' }}>{loading ? 'Resetting…' : 'Reset Password'}</button>
             </form>
+          ) : resetStep === 'verify' ? (
+            <form onSubmit={verifyEmail} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
+              <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, margin: 0 }}>Enter the 6-digit verification code sent to {form.email || 'your email'}.</p>
+              <input type="email" placeholder="your@email.com" value={form.email} onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))} required style={inputStyle} />
+              <input inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="Verification code" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))} required style={inputStyle} />
+              <button type="submit" disabled={loading} style={{ background: 'var(--gold)', border: 'none', borderRadius: 10, color: 'var(--text)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 700, padding: '14px' }}>{loading ? 'Verifying...' : 'Verify Email'}</button>
+              <button type="button" disabled={loading} onClick={resendVerification} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 12 }}>Send verification code again</button>
+              <button type="button" onClick={() => { setError(''); setResetStep('login') }} style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: 12 }}>Back to sign in</button>
+            </form>
           ) : <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {error && <div style={{ background: 'var(--risk-bg)', border: '1px solid rgba(220,38,38,0.2)', color: 'var(--risk)', borderRadius: 8, padding: '10px 12px', fontSize: 12 }}>{error}</div>}
             <div>
@@ -126,6 +183,7 @@ export default function Login({ navigate }: Props) {
               </div>
               <input type="password" placeholder="Your password" value={form.password} onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))} required style={inputStyle} onFocus={(e) => e.target.style.borderColor = 'var(--emerald)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-2)'} />
             </div>
+            <button type="button" disabled={loading} onClick={resendVerification} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--emerald)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, padding: 0 }}>Need a new verification code?</button>
             <button type="submit" disabled={loading} style={{
               background: loading ? '#6B7280' : 'var(--gold)', border: 'none', borderRadius: 10,
               color: loading ? '#fff' : 'var(--text)', cursor: loading ? 'not-allowed' : 'pointer',

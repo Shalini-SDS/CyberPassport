@@ -52,13 +52,16 @@ def register(payload: UserCreate):
     email = payload.email.lower()
     if db[USERS].find_one({"email": email}):
         raise HTTPException(status_code=409, detail="An account with this email already exists")
+    profile = {"name": payload.name, "email": email}
+    if payload.country:
+        profile["country"] = payload.country
     user = {
         "name": payload.name,
         "email": email,
         "password_hash": hash_password(payload.password),
         "email_verified": False,
         "created_at": datetime.now(timezone.utc),
-        "profile": {"name": payload.name, "email": email},
+        "profile": profile,
     }
     try:
         result = db[USERS].insert_one(user)

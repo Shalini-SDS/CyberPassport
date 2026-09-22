@@ -256,7 +256,8 @@ def verify_passport(db: Any, passport_id: str) -> Dict[str, Any]:
     if not record:
         return {"valid": False, "status": "Invalid", "reason": "Passport not found", "verification_time": utc_now().isoformat()}
 
-    passport = passport_by_identifier(db, passport_id)
+    passport = ensure_passport_for_user(db, str(record.get("user_id", "")))
+    record = db[PASSPORTS].find_one({"passport_id": passport_id}) or record
     stored_hash = record.get("integrity_hash", "")
     computed_hash = integrity_hash(passport)
     expired = passport.get("expiry_date", "") < utc_now().date().isoformat()
@@ -411,26 +412,42 @@ def generate_passport_pdf(passport: Dict[str, Any]) -> bytes:
     for item in (passport.get("top_recommendations") or ["Complete a cybersecurity assessment"])[:5]:
         c.drawString(x + 24, rec_y, f"- {str(item)[:48]}")
         rec_y -= 18
-    draw_pdf_qr(c, passport["verification_url"], x + 28, y + 54, 108)
+    qr_x = x + 28
+    qr_y = y + 54
+    draw_pdf_qr(c, passport["verification_url"], qr_x, qr_y, 108)
+    c.linkURL(passport["verification_url"], (qr_x, qr_y, qr_x + 108, qr_y + 108), relative=0)
     c.setFont("Helvetica-Bold", 6)
     c.drawCentredString(x + 82, y + 42, "SCAN TO VERIFY")
     detail_x = x + 154
     c.setFont("Helvetica-Bold", 7)
     c.drawString(detail_x, y + 145, "PASSPORT DETAILS")
     c.setFont("Helvetica", 7)
-    for label, value in [
+    detail_rows = [
         ("PASSPORT NO.", passport["passport_id"]),
         ("ISSUED", passport["issued_date"]),
         ("EXPIRES", passport["expiry_date"]),
         ("STATUS", passport["security_status"]),
         ("VERIFY", passport["verification_url"]),
-    ]:
+    ]
+    for index, (label, value) in enumerate(detail_rows):
+        yline = y + 128 - 18 * index
         c.setFont("Helvetica-Bold", 5.5)
-        c.drawString(detail_x, rec_y := (rec_y - 0) if False else y + 128, "")
-        yline = y + 128 - 18 * [("PASSPORT NO.", passport["passport_id"]), ("ISSUED", passport["issued_date"]), ("EXPIRES", passport["expiry_date"]), ("STATUS", passport["security_status"]), ("VERIFY", passport["verification_url"])].index((label, value))
         c.drawString(detail_x, yline, label)
         c.setFont("Helvetica", 7)
-        c.drawString(detail_x + 70, yline, str(value)[:34])
+        value_x = detail_x + 70
+        text = str(value)
+        if label == "VERIFY":
+            first = text[:30]
+            second = text[30:60]
+            third = text[60:90]
+            c.drawString(value_x, yline, first)
+            if second:
+                c.drawString(value_x, yline - 8, second)
+            if third:
+                c.drawString(value_x, yline - 16, third)
+            c.linkURL(text, (value_x, yline - 18, value_x + 165, yline + 9), relative=0)
+        else:
+            c.drawString(value_x, yline, text[:34])
     c.setFillColor(emerald)
     c.rect(x, y, panel_w, 24, stroke=0, fill=1)
     c.setFillColor(gold)

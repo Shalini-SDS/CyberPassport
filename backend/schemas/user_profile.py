@@ -49,6 +49,7 @@ class UserProfile(BaseModel):
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
+    country: Optional[str] = None
     password: str
 
     @field_validator("password")

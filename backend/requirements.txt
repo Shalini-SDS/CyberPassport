@@ -2,6 +2,7 @@ fastapi
 python-multipart
 uvicorn[standard]
 pydantic
+email-validator
 pandas
 numpy
 scikit-learn
