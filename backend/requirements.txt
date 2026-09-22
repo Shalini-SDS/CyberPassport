@@ -3,6 +3,7 @@ python-multipart
 uvicorn[standard]
 pydantic
 email-validator
+reportlab
 pandas
 numpy
 scikit-learn
