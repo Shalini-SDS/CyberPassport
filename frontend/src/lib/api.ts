@@ -13,7 +13,7 @@ const normalizeApiUrl = (value: string) => {
   }
 }
 
-export const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL || 'http://localhost:8000')
+export const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL || '')
 const REQUEST_TIMEOUT_MS = 12000
 
 export type CurrentUser = {
